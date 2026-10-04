@@ -1,4 +1,3 @@
-// app/page.js — server component, reads live products from Supabase
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import HomeClient from '@/components/HomeClient'
 
