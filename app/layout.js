@@ -1,4 +1,3 @@
-// app/layout.js
 import './globals.css'
 import { Space_Grotesk, Instrument_Sans } from 'next/font/google'
 import { StoreProvider } from '@/context/StoreContext'
@@ -8,7 +7,7 @@ const sans = Instrument_Sans({ subsets: ['latin'], variable: '--font-sans' })
 
 export const metadata = {
   title: 'VAULTED — Curated USA Exports',
-  description: 'Premium authenticated used goods, exported from the USA to Japan, UK, Germany, Australia & UAE.',
+  description: 'Premium authenticated used goods, exported from the USA.',
 }
 
 export default function RootLayout({ children }) {
