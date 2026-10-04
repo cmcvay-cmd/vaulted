@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body { overscroll-behavior: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.press { transition: transform .12s ease; }
+.press:active { transform: scale(.96); }
+
+@keyframes fadeUp   { from { opacity:0; transform:translateY(10px);} to { opacity:1; transform:none;} }
+@keyframes fadeIn   { from { opacity:0;} to { opacity:1;} }
+@keyframes screenIn { from { opacity:0; transform:translateY(14px);} to { opacity:1; transform:none;} }
+@keyframes marquee  { from { transform:translateX(0);} to { transform:translateX(-50%);} }
+@keyframes dotB     { 0%,60%,100% { transform:translateY(0); opacity:.35;} 30% { transform:translateY(-3px); opacity:1;} }
+.a-fadeUp  { animation: fadeUp .3s cubic-bezier(.2,.8,.2,1) both; }
+.a-fade    { animation: fadeIn .25s ease both; }
+.a-screen  { animation: screenIn .38s cubic-bezier(.2,.8,.2,1) both; }
+.a-marquee { animation: marquee 22s linear infinite; }
+.a-dot     { animation: dotB 1s ease-in-out infinite; }
