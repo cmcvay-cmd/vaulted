@@ -26,7 +26,11 @@ export default function CheckoutPage() {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ visitor_id: visitorId, country, items: cart.map((x) => ({ id: x.id, qty: x.qty })) }),
+        body: JSON.stringify({
+          visitor_id: visitorId,
+          country,
+          items: cart.map((x) => ({ id: x.id, qty: x.qty })),
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Something went wrong')
@@ -34,11 +38,13 @@ export default function CheckoutPage() {
       dispatch({ type: 'clear' })
       router.push(`/chat/${data.orderId}`)
     } catch (e) {
-      setErr(e.message); setBusy(false)
+      setErr(e.message)
+      setBusy(false)
     }
   }
 
   if (!hydrated) return <div className="h-dvh" />
+
   return (
     <div className="a-screen pb-40">
       <Header />
@@ -48,7 +54,9 @@ export default function CheckoutPage() {
 
         {cart.length === 0 ? (
           <div className="text-center py-16">
-            <div className="inline-flex w-16 h-16 rounded-full bg-white border border-neutral-200 items-center justify-center"><Icon n="bag" c="w-7 h-7 text-neutral-300" /></div>
+            <div className="inline-flex w-16 h-16 rounded-full bg-white border border-neutral-200 items-center justify-center">
+              <Icon n="bag" c="w-7 h-7 text-neutral-300" />
+            </div>
             <div className="font-display font-bold mt-3">Your box is empty</div>
             <a href="/" className="press inline-block mt-3 bg-neutral-900 text-white text-[12px] font-bold rounded-full px-5 py-2.5">Browse the vault</a>
           </div>
@@ -56,7 +64,9 @@ export default function CheckoutPage() {
           <div className="space-y-2.5 mt-4">
             {cart.map((x) => (
               <div key={x.id} className="flex gap-3 rounded-2xl bg-white border border-neutral-200 p-3">
-                <div className="relative w-[64px] h-[78px] rounded-lg overflow-hidden shrink-0"><ProductArt art={x.art} imageUrl={x.image_url} iconClass="w-9 h-9" /></div>
+                <div className="relative w-[64px] h-[78px] rounded-lg overflow-hidden shrink-0">
+                  <ProductArt art={x.art} imageUrl={x.image_url} iconClass="w-9 h-9" />
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between gap-2">
                     <div className="text-[9px] font-bold tracking-[0.16em] text-neutral-400 uppercase">{x.brand}</div>
@@ -89,12 +99,15 @@ export default function CheckoutPage() {
           <div className="text-[10px] font-bold tracking-[0.2em] text-neutral-400 mb-2">DESTINATION COUNTRY <span className="text-red-500">*</span></div>
           <div className="relative">
             <button onClick={() => setOpen((o) => !o)} className="press w-full h-12 rounded-xl bg-white border border-neutral-200 px-3.5 flex items-center justify-between">
-              {c ? <span className="text-[13px] font-semibold flex items-center gap-2"><span className="text-[16px]">{c.flag}</span>{c.name}</span>
-                  : <span className="text-[13px] text-neutral-400">Select destination country…</span>}
+              {c ? (
+                <span className="text-[13px] font-semibold flex items-center gap-2"><span className="text-[16px]">{c.flag}</span>{c.name}</span>
+              ) : (
+                <span className="text-[13px] text-neutral-400">Select destination country…</span>
+              )}
               <Icon n="chev" c={`w-4 h-4 text-neutral-400 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
             {open && (
-              <div className="absolute z-20 mt-2 w-full bg-white rounded-xl border border-neutral-200 shadow-xl overflow-hidden">
+              <div className="absolute z-50 mt-2 w-full bg-white rounded-xl border border-neutral-200 shadow-xl overflow-y-auto max-h-64 no-scrollbar">
                 {COUNTRIES.map((cc) => (
                   <button key={cc.id} onClick={() => { setCountry(cc.id); setOpen(false) }}
                     className="w-full px-3.5 py-3 flex items-center gap-2.5 hover:bg-neutral-50 border-b border-neutral-100 last:border-0">
