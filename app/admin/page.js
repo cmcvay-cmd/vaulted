@@ -1,14 +1,17 @@
+// app/admin/page.js — Seller Studio
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { countryById, fmt } from '@/lib/countries'
 import { Icon, ProductArt } from '@/components/ui'
+import { RefreshIcon } from '@/components/Header'
 
 const time = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
 const CATS = ['Apple Tech', 'Luxury Bags', 'Hype Sneakers', 'Vintage Americana']
 const ARTS = ['titanium', 'midnight', 'monogram', 'caviar', 'chicago', 'military', 'denim', 'duck']
 const GRADES = ['Pristine', 'Excellent', 'Very Good']
-const emptyForm = { title: '', brand: '', price_usd: '', score: '9.0', category: 'Apple Tech', grade: 'Excellent', art: 'titanium', tag_id: '', image_url: '', why: '', wear_note: '', checks: '', video: false }
+const STATUSES = ['open', 'quoted', 'paid', 'shipped', 'closed']
+const emptyForm = { title: '', brand: '', price_usd: '', score: '9.0', category: 'Apple Tech', grade: 'Excellent', art: 'titanium', tag_id: '', why: '', wear_note: '', checks: '', video: false }
 
 function Field({ label, ...props }) {
   return (
@@ -26,6 +29,7 @@ export default function AdminPage() {
   const [pass, setPass] = useState('')
   const [loginErr, setLoginErr] = useState('')
   const [tab, setTab] = useState('inbox')
+  const [spin, setSpin] = useState(false)
 
   const [orders, setOrders] = useState([])
   const [sel, setSel] = useState(null)
@@ -38,6 +42,8 @@ export default function AdminPage() {
   const [products, setProducts] = useState([])
   const [form, setForm] = useState(emptyForm)
   const [formOpen, setFormOpen] = useState(false)
+  const [file, setFile] = useState(null)
+  const [preview, setPreview] = useState('')
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
 
@@ -80,6 +86,20 @@ export default function AdminPage() {
     if (error) setLoginErr(error.message)
   }
 
+  async function refresh() {
+    setSpin(true)
+    const [o, p] = await Promise.all([
+      fetch('/api/orders').then((r) => r.json()).catch(() => ({ orders: [] })),
+      fetch('/api/products').then((r) => r.json()).catch(() => ({ products: [] })),
+    ])
+    setOrders(o.orders || []); setProducts(p.products || [])
+    if (sel) {
+      const m = await fetch(`/api/messages?order_id=${sel.id}`).then((r) => r.json()).catch(() => ({ messages: [] }))
+      ;(m.messages || []).forEach(addMsg)
+    }
+    setSpin(false)
+  }
+
   async function send() {
     if (!input.trim() || !sel) return
     const t = input; setInput('')
@@ -94,19 +114,44 @@ export default function AdminPage() {
     setSel((s) => ({ ...s, shipping_total: total }))
   }
 
+  async function saveStatus(status) {
+    if (!sel) return
+    await fetch(`/api/orders/${sel.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
+    setOrders((os) => os.map((o) => (o.id === sel.id ? { ...o, status } : o)))
+    setSel((s) => ({ ...s, status }))
+  }
+
+  function onFile(e) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    setFile(f)
+    setPreview(URL.createObjectURL(f))
+  }
+
   async function saveProduct(e) {
     e.preventDefault(); setBusy(true); setNote('')
-    const checks = form.checks.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
-      const [a, ...rest] = l.split(':')
-      return { l: a.trim(), v: rest.join(':').trim() || 'OK' }
-    })
-    const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, checks }) })
-    const d = await res.json()
-    setBusy(false)
-    if (!res.ok) { setNote('⚠️ ' + (d.error || 'Could not publish')); return }
-    setProducts((p) => [...p, d.product])
-    setForm(emptyForm); setFormOpen(false)
-    setNote('✓ Published to the storefront')
+    try {
+      let image_url = null
+      if (file) {
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+        const path = `prod-${Date.now()}.${ext}`
+        const up = await supabase.storage.from('products').upload(path, file)
+        if (up.error) throw new Error('Photo upload: ' + up.error.message)
+        image_url = supabase.storage.from('products').getPublicUrl(path).data.publicUrl
+      }
+      const checks = form.checks.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+        const [a, ...rest] = l.split(':')
+        return { l: a.trim(), v: rest.join(':').trim() || 'OK' }
+      })
+      const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, checks, image_url }) })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error || 'Could not publish')
+      setProducts((p) => [d.product, ...p])
+      setForm(emptyForm); setFormOpen(false); setFile(null); setPreview('')
+      setNote('✓ Published — live on the storefront now')
+    } catch (er) {
+      setNote('⚠️ ' + er.message)
+    } finally { setBusy(false) }
   }
 
   async function removeProduct(id) {
@@ -133,7 +178,12 @@ export default function AdminPage() {
     <div className="h-dvh flex flex-col bg-[#efece7]">
       <div className="bg-white border-b border-neutral-200 px-4 py-3 flex items-center justify-between">
         <div className="font-display font-bold">Seller Studio</div>
-        <button onClick={() => supabase.auth.signOut()} className="text-[11px] font-bold text-neutral-400 underline">Sign out</button>
+        <div className="flex items-center gap-3">
+          <button onClick={refresh} aria-label="Refresh" className="press w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center">
+            <RefreshIcon c={`w-4 h-4 ${spin ? 'animate-spin' : ''}`} />
+          </button>
+          <button onClick={() => supabase.auth.signOut()} className="text-[11px] font-bold text-neutral-400 underline">Sign out</button>
+        </div>
       </div>
 
       <div className="flex border-b border-neutral-200 bg-white">
@@ -145,11 +195,16 @@ export default function AdminPage() {
         <>
           {sel && (
             <div className="bg-white border-b border-neutral-200 px-4 py-2.5 space-y-2">
-              <select value={sel.id} onChange={(e) => selectOrder(orders.find((o) => o.id === e.target.value))} className="h-9 w-full rounded-lg border border-neutral-200 px-2 text-[12px] font-semibold bg-white">
-                {orders.map((o) => (
-                  <option key={o.id} value={o.id}>{countryById(o.country)?.flag} {fmt(o.subtotal_usd)} · {new Date(o.created_at).toLocaleDateString()} · {o.status}</option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2">
+                <select value={sel.id} onChange={(e) => selectOrder(orders.find((o) => o.id === e.target.value))} className="h-9 flex-1 rounded-lg border border-neutral-200 px-2 text-[12px] font-semibold bg-white">
+                  {orders.map((o) => (
+                    <option key={o.id} value={o.id}>{countryById(o.country)?.flag} {fmt(o.subtotal_usd)} · {new Date(o.created_at).toLocaleDateString()} · {o.status}</option>
+                  ))}
+                </select>
+                <select value={sel.status} onChange={(e) => saveStatus(e.target.value)} className="h-9 rounded-lg border border-neutral-200 px-2 text-[11px] font-bold bg-white uppercase">
+                  {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
               <div className="flex items-center gap-2">
                 <input value={total} onChange={(e) => setTotal(e.target.value)} placeholder="Shipping & final total" className="h-9 flex-1 rounded-lg border border-dashed border-neutral-300 px-2.5 text-[12px] font-semibold" />
                 <button onClick={saveTotal} className="press h-9 px-3 rounded-lg bg-neutral-900 text-white text-[11px] font-bold shrink-0">Quote it</button>
@@ -185,6 +240,18 @@ export default function AdminPage() {
 
           {formOpen && (
             <form onSubmit={saveProduct} className="a-fade rounded-2xl bg-white border border-neutral-200 p-4 space-y-2.5">
+              <div>
+                <span className="text-[9px] font-bold tracking-[0.18em] text-neutral-400 uppercase">Product photo (from your device)</span>
+                <div className="mt-1 flex items-center gap-3">
+                  <div className="relative w-14 h-16 rounded-lg overflow-hidden border border-neutral-200 bg-neutral-50 flex items-center justify-center">
+                    {preview ? <img src={preview} alt="" className="absolute inset-0 w-full h-full object-cover" /> : <Icon n="plus" c="w-5 h-5 text-neutral-300" />}
+                  </div>
+                  <label className="press h-10 px-3 rounded-lg border border-neutral-200 bg-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer">
+                    <Icon n="camera" c="w-4 h-4" /> {preview ? 'CHANGE PHOTO' : 'UPLOAD PHOTO'}
+                    <input type="file" accept="image/*" className="hidden" onChange={onFile} />
+                  </label>
+                </div>
+              </div>
               <Field label="Title" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="iPhone 14 Pro — 128GB, Deep Purple" />
               <div className="grid grid-cols-2 gap-2.5">
                 <Field label="Brand" required value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="Apple" />
@@ -203,12 +270,11 @@ export default function AdminPage() {
               </div>
               <div className="grid grid-cols-2 gap-2.5">
                 <label className="block">
-                  <span className="text-[9px] font-bold tracking-[0.18em] text-neutral-400 uppercase">Art theme</span>
+                  <span className="text-[9px] font-bold tracking-[0.18em] text-neutral-400 uppercase">Fallback art</span>
                   <select value={form.art} onChange={(e) => setForm({ ...form, art: e.target.value })} className="mt-1 w-full h-10 rounded-lg border border-neutral-200 px-2 text-[12px] bg-white">{ARTS.map((c) => <option key={c}>{c}</option>)}</select>
                 </label>
                 <Field label="Tag ID (optional)" value={form.tag_id} onChange={(e) => setForm({ ...form, tag_id: e.target.value })} placeholder="VL-1234" />
               </div>
-              <Field label="Photo URL (optional)" value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} placeholder="https://… (empty = artwork)" />
               <label className="block">
                 <span className="text-[9px] font-bold tracking-[0.18em] text-neutral-400 uppercase">Grading notes</span>
                 <textarea value={form.why} onChange={(e) => setForm({ ...form, why: e.target.value })} rows={2} className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-[13px] outline-none bg-white" placeholder="Graded Excellent: …" />
