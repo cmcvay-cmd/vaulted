@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { countryById, fmt } from '@/lib/countries'
 import { Icon } from '@/components/ui'
+import { RefreshIcon } from '@/components/Header'
 
 const QUICK = ['⚡ Fastest shipping quote', '💰 Cheapest shipping', '🛃 Customs & declaration', '💳 Payment options']
 const time = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -16,6 +17,7 @@ export default function ChatPage({ params }) {
   const [input, setInput] = useState('')
   const [sumOpen, setSumOpen] = useState(true)
   const [err, setErr] = useState('')
+  const [spin, setSpin] = useState(false)
   const seen = useRef(new Set())
   const listRef = useRef(null)
 
@@ -25,19 +27,26 @@ export default function ChatPage({ params }) {
     setMsgs((prev) => [...prev, m].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)))
   }
 
-  useEffect(() => {
-    ;(async () => {
-      const [oRes, mRes] = await Promise.all([
-        fetch(`/api/orders/${orderId}`),
-        fetch(`/api/messages?order_id=${orderId}`),
-      ])
-      if (!oRes.ok) { setErr('Order not found.'); return }
-      const { order } = await oRes.json()
-      const { messages } = await mRes.json()
-      setOrder(order)
-      messages.forEach(addMsg)
-    })()
+  async function load() {
+    const [oRes, mRes] = await Promise.all([
+      fetch(`/api/orders/${orderId}`),
+      fetch(`/api/messages?order_id=${orderId}`),
+    ])
+    if (!oRes.ok) { setErr('Order not found.'); return }
+    const { order } = await oRes.json()
+    const { messages } = await mRes.json()
+    setOrder(order)
+    ;(messages || []).forEach(addMsg)
+  }
 
+  async function refresh() {
+    setSpin(true)
+    await load()
+    setSpin(false)
+  }
+
+  useEffect(() => {
+    load()
     const ch = supabase.channel(`order-${orderId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `order_id=eq.${orderId}` }, ({ new: m }) => addMsg(m))
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` }, ({ new: o }) => setOrder(o))
@@ -67,7 +76,7 @@ export default function ChatPage({ params }) {
   return (
     <div className="h-dvh flex flex-col bg-[#efece7] a-screen">
       <header className="bg-white border-b border-neutral-200 z-30">
-        <div className="flex items-center gap-3 px-3 pt-3 pb-2.5">
+        <div className="flex items-center gap-2.5 px-3 pt-3 pb-2.5">
           <Link href="/" className="press w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center shrink-0"><Icon n="back" c="w-5 h-5" /></Link>
           <div className="relative shrink-0">
             <div className="w-9 h-9 rounded-full bg-neutral-900 text-white flex items-center justify-center font-display font-bold text-[14px]">V</div>
@@ -77,7 +86,10 @@ export default function ChatPage({ params }) {
             <div className="text-[13.5px] font-bold leading-none truncate">Vaulted Export Desk</div>
             <div className="text-[10px] text-emerald-600 font-semibold mt-1">Live checkout · replies in chat</div>
           </div>
-          <span className="flex items-center gap-1 text-[8.5px] font-bold tracking-[0.14em] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2 py-1">
+          <button onClick={refresh} aria-label="Refresh" className="press w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center shrink-0">
+            <RefreshIcon c={`w-4 h-4 ${spin ? 'animate-spin' : ''}`} />
+          </button>
+          <span className="hidden min-[380px]:flex items-center gap-1 text-[8.5px] font-bold tracking-[0.14em] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2 py-1">
             <Icon n="shield" c="w-3 h-3" /> SECURE
           </span>
         </div>
