@@ -1,4 +1,3 @@
-// app/checkout/page.js — the Shopping Box + country selector + order creation
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'

@@ -1,4 +1,3 @@
-// app/admin/page.js — Seller Studio
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
@@ -247,7 +246,7 @@ export default function AdminPage() {
                     {preview ? <img src={preview} alt="" className="absolute inset-0 w-full h-full object-cover" /> : <Icon n="plus" c="w-5 h-5 text-neutral-300" />}
                   </div>
                   <label className="press h-10 px-3 rounded-lg border border-neutral-200 bg-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer">
-                    <Icon n="camera" c="w-4 h-4" /> {preview ? 'CHANGE PHOTO' : 'UPLOAD PHOTO'}
+                    <Icon n="plus" c="w-4 h-4" /> {preview ? 'CHANGE PHOTO' : 'UPLOAD PHOTO'}
                     <input type="file" accept="image/*" className="hidden" onChange={onFile} />
                   </label>
                 </div>

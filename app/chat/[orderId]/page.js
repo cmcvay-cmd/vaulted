@@ -1,4 +1,3 @@
-// app/chat/[orderId]/page.js
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -89,9 +88,6 @@ export default function ChatPage({ params }) {
           <button onClick={refresh} aria-label="Refresh" className="press w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center shrink-0">
             <RefreshIcon c={`w-4 h-4 ${spin ? 'animate-spin' : ''}`} />
           </button>
-          <span className="hidden min-[380px]:flex items-center gap-1 text-[8.5px] font-bold tracking-[0.14em] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2 py-1">
-            <Icon n="shield" c="w-3 h-3" /> SECURE
-          </span>
         </div>
 
         <div className="border-t border-neutral-100 bg-neutral-50/90">
